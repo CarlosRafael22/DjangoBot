@@ -34,6 +34,16 @@ URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 PESO_TEXTO = "Medida de Peso"
 REFEICAO_TEXTO = "Adicionar Refeição"
 
+# OPCOES DE REFEICOES
+CAFE_DA_MANHA = "Café da manhã"
+LANCHE_MANHA = "Lanche da manhã"
+ALMOCO = "Almoço"
+LANCHE_TARDE = "Lanche da tarde"
+JANTAR= "Jantar"
+LANCHE_NOITE = "Lanche da noite"
+
+LISTA_REFEICOES = [CAFE_DA_MANHA, LANCHE_MANHA, ALMOCO, LANCHE_TARDE, JANTAR, LANCHE_NOITE]
+
 # GAMBIARRA PRA SABER QUE TIPO DE MENSAGEM A GNT ESTA LIDANDO
 # 1 - VAI MANDAR O PESO
 # 2 - VAI MANDAR AS REFEICOES
@@ -106,14 +116,14 @@ def get_last_message_info(updates):
     date = updates["result"][last_update]["message"]["date"]
     return (text, chat_id, date)
 
-def create_message_to_send(text):
-    message = ""
-    if "oi" in text.lower():
-        message = "Boa noite, mô fi!"
-    else:
-        message = text
+# def create_message_to_send(text):
+#     message = ""
+#     if "oi" in text.lower():
+#         message = "Boa noite, mô fi!"
+#     else:
+#         message = text
 
-    return message
+#     return message
 
 
 def build_keyboard():
@@ -121,15 +131,23 @@ def build_keyboard():
     reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
     return json.dumps(reply_markup)
 
-# def send_message(text, chat_id):
+def build_refeicoes_keyboard():
+    keyboard = [[CAFE_DA_MANHA, LANCHE_MANHA, ALMOCO], [LANCHE_TARDE, JANTAR, LANCHE_NOITE]]
+    reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
+    return json.dumps(reply_markup)
 
-#     # Modificando a mensagem que ele vai mandar
-#     message_text = create_message_to_send(text)
-#     url = URL + "sendMessage?text={}&chat_id={}".format(message_text, chat_id)
-#     get_url(url)
+def build_inlinekeyboard():
+    keyboard = [[{"text":CAFE_DA_MANHA, "callback_data": CAFE_DA_MANHA}, {"text":LANCHE_MANHA, "callback_data": LANCHE_MANHA},
+     {"text":ALMOCO, "callback_data": ALMOCO}], 
+     [{"text":LANCHE_TARDE, "callback_data": LANCHE_TARDE}, {"text":JANTAR, "callback_data": JANTAR}, 
+     {"text":LANCHE_NOITE, "callback_data": LANCHE_NOITE}]]
+    reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
+    return json.dumps(reply_markup)
+
+
 def send_message(text, chat_id, reply_markup=None):
     # text = urllib.parse.quote_plus(text)
-    text = create_message_to_send(text)
+    # text = create_message_to_send(text)
     url = URL + "sendMessage?text={}&chat_id={}&parse_mode=Markdown".format(text, chat_id)
     if reply_markup:
         url += "&reply_markup={}".format(reply_markup)
@@ -142,10 +160,7 @@ def receive_chat(updates, text, chat, participante, nome_participante):
     if text == PESO_TEXTO:
         send_message("Ok! Pode inserir seu peso.", chat)
         MESSAGE_TYPE = 1
-    # # Se tiver um numero só sem ser decimal entao quer dizer que é só o peso mesmo e nao um número dizendo uma porção na refeicao
-    # elif MESSAGE_TYPE == 1 and len(re.findall("\d+", text )) == 1:
-    #     save_peso_to_db(updates, participante)
-    #     MESSAGE_TYPE = 3
+    
     # Se tiver avisado q vai adicionar um peso e mensagem vier com algum decimal entao pegamos o peso
     elif MESSAGE_TYPE == 1 and (len(re.findall("\d+\.\d+", text )) > 0 or len(re.findall("\d+", text )) == 1):
         rgA = re.findall("\d+\.\d+", text )
@@ -159,28 +174,36 @@ def receive_chat(updates, text, chat, participante, nome_participante):
     
 
     # INTERACOES COM AS REFEICOES
+    # elif text == REFEICAO_TEXTO:
+    #     send_message("Agora insira o tipo da refeição.", chat, build_refeicoes_keyboard)
+    #     MESSAGE_TYPE = 2
+    # elif text in LISTA_REFEICOES:
+    #     send_message("Ok! Insira em uma única mensagem o que você comeu.", chat)
+    #     MESSAGE_TYPE = 2
+    # elif MESSAGE_TYPE == 2:
+    #     save_refeicao_to_db(updates, participante)
+    #     MESSAGE_TYPE = 3
     elif text == REFEICAO_TEXTO:
-        send_message("Ok! Insira em uma única mensagem o que você comeu.:", chat)
+        send_message("Ok! Insira em uma única mensagem o que você comeu.", chat)
         MESSAGE_TYPE = 2
     elif MESSAGE_TYPE == 2:
         save_refeicao_to_db(updates, participante)
         MESSAGE_TYPE = 3
 
     # OUTRAS INTERACOES
-    if "#oi" in text.lower():
+    if "oi" in text.lower():
         keyboard = build_keyboard()
-        msg =  "Olá, "+nome_participante+"! Selecione uma das opções abaixo:"
+        msg =  "Olá, "+nome_participante+"! Selecione o tipo de registro."
         send_message(msg, chat, keyboard)
         MESSAGE_TYPE = 0
     elif MESSAGE_TYPE == 3:
-        send_message("Obrigado por submeter os dados! ;)", chat)
+        send_message("Seu registro foi feito com sucesso!", chat)
         MESSAGE_TYPE = 0
     elif MESSAGE_TYPE == 0:
-        msg =  "Desculpe, "+nome_participante+"! Eu sou limitado só à algumas interações ;)"
+        msg =  "Desculpe, "+nome_participante+". Para inserir um novo registro, digite 'oi'."
         send_message(msg, chat)
-        send_message("Quando quiser registrar algum dado fale comigo :)", chat)
     elif text == "/start":
-        send_message("Welcome to your personal To Do list. Send any text to me and I'll store it as an item. Send /done to remove items", chat)
+        send_message("Olá! Para inserir um novo registro, digite 'oi'.", chat)
         MESSAGE_TYPE = 0
     # elif text.startswith("/"):
     #     continue
@@ -212,7 +235,7 @@ def handle_updates(updates):
         # # CRIAR UM THREAD PARA CADA CHAT COM ID DIFERENTE
         # global CHAT_IDS_THREADS_CRIADAS
         # if chat not in CHAT_IDS_THREADS_CRIADAS:
-        #     thread = 
+        #     thread = chatThread(, chat, )
 
         receive_chat(updates, text, chat, participante, nome_participante)
 

@@ -4,7 +4,7 @@ import time
 exitFlag = 0
 
 class chatThread(threading.Thread):
-    def __init__(self, threadID, chat_id, counter):
+    def __init__(self, threadID, chat_id):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.chat_id = chat_id
