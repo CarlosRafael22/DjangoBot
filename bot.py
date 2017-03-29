@@ -26,8 +26,9 @@ application = get_wsgi_application()
 from bot.models import *
 
 
-
-TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
+# Token antigo do elevebot
+# TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
+TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
 # VARIAVEIS QUE VAO APARECER COMO OPÇOES NO TECLADO

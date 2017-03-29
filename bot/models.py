@@ -5,6 +5,9 @@ class Participante(models.Model):
 	telegram_chat_id = models.CharField(max_length=50)
 	nome = models.CharField(max_length=50)
 
+	def __str__(self):
+		return self.nome
+
 class Log_Peso(models.Model):
 	peso = models.DecimalField(max_digits=5, decimal_places=2, null=True)
 	data = models.DateTimeField()
@@ -18,9 +21,7 @@ class Log_Peso(models.Model):
 	#  TEM QUE SUBTRAIR 3 HORAS PARA DAR A HORA DAQUI JA QUE ELE PEGA A HORA DE GREENWICH
 
 	def __str__(self):
-		# peso_mais_recente = str(self.history.most_recent().peso)
-		# response = self.participante.perfil.user.username + " " + peso_mais_recente
-		response = str(self.peso)
+		response = str(self.peso) + " " + self.participante.nome
 		return response
 
 	# def save(self, *args, **kwargs):
