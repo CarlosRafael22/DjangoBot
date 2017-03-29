@@ -1,12 +1,14 @@
 from django.db import models
 
 # Create your models here.
-# class Participante(models.Model):
-# 	telegram_id 
+class Participante(models.Model):
+	telegram_chat_id = models.CharField(max_length=50)
+	nome = models.CharField(max_length=50)
+
 class Log_Peso(models.Model):
 	peso = models.DecimalField(max_digits=5, decimal_places=2, null=True)
 	data = models.DateTimeField()
-	# participante = models.OneToOneField(Paciente)
+	participante = models.ForeignKey(Participante)
 	# history = HistoricalRecords()
 
 
@@ -38,6 +40,7 @@ class Log_Refeicao(models.Model):
 	refeicao_nome = models.CharField(max_length=100, null = True)
 	descricao_refeicao = models.CharField(max_length=500)
 	data = models.DateTimeField()
+	participante = models.ForeignKey(Participante)
 	# person = models.ForeignKey(Person, related_name='logs_meal')
 
 	def __str__(self):

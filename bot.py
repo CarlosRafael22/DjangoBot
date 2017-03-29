@@ -36,7 +36,13 @@ REFEICAO_TEXTO = "Adicionar Refeição"
 # GAMBIARRA PRA SABER QUE TIPO DE MENSAGEM A GNT ESTA LIDANDO
 # 1 - VAI MANDAR O PESO
 # 2 - VAI MANDAR AS REFEICOES
+# 3 -  MENSAGEM PARA AGRADECER A SUBMISSAO
 MESSAGE_TYPE = 0
+
+
+# Lista de usuarios ja vistos para nao precisar ficar checando no banco
+# se ja registrou o participante
+LISTA_PARTICIPANTES = []
 
 def get_url(url):
     print("accessed API")
@@ -61,7 +67,7 @@ def get_updates(offset=None):
     js = get_json_from_url(url)
     return js
 
-def save_peso_to_db(updates):
+def save_peso_to_db(updates, participante):
     print("Pegando o peso")
     # Pegando a ultima mensagem com o chat_id
     (msg, chat_id, date) = get_last_message_info(updates)
@@ -69,17 +75,17 @@ def save_peso_to_db(updates):
     # Pegando o peso
     msg = re.findall("\d+", msg )[0]
     data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
-    Log_Peso.objects.create(peso=msg, data=data)
+    Log_Peso.objects.create(peso=msg, data=data, participante=participante)
 
 
-def save_refeicao_to_db(updates):
+def save_refeicao_to_db(updates, participante):
     print("Pegando a refeicao")
     # Pegando a ultima mensagem com o chat_id
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
 
     data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
-    Log_Refeicao.objects.create(descricao_refeicao=msg, data=data)
+    Log_Refeicao.objects.create(descricao_refeicao=msg, data=data, participante=participante)
 
 # Add a function that calculates the highest ID of all the updates we receive from getUpdates. 
 # Quando for ver a ultima mensagem que recebeu do getUpdates ele pega e salva no banco
@@ -133,27 +139,41 @@ def handle_updates(updates):
     for update in updates["result"]:
         text = update["message"]["text"]
         chat = update["message"]["chat"]["id"]
+        nome_participante = update["message"]["chat"]["first_name"]
 
+        # Para cada mensagem nova que recebeu eu vou ver o chat para saber o id do participante conversando
+        # Para cada participante diferente eu teria que cirar um processo para ele lidar com as msgs do mesmo
+        try:
+            participante = Participante.objects.get(telegram_chat_id=chat)
+        except Exception as e:
+            participante = Participante.objects.create(telegram_chat_id=chat, nome=nome_participante)
+            LISTA_PARTICIPANTES.append({"telegram_chat_id" : chat, "nome" : nome_participante})
+
+        print(MESSAGE_TYPE)
         # AQUI EU LI O QUE O USUARIO MANDOU E AI EU VEJO O QUE RESPONDO OU FAÇO NO BANCO
         if text == PESO_TEXTO:
-            send_message("Adicione o seu novo peso :", chat)
+            send_message("Ok! Pode inserir seu peso.", chat)
             MESSAGE_TYPE = 1
         # Se tiver avisado q vai adicionar um peso e mensagem vier com algum decimal entao pegamos o peso
         elif MESSAGE_TYPE == 1 and len(re.findall("\d+\.\d+", text )) > 0:
-            save_peso_to_db(updates)
-            MESSAGE_TYPE = 0
+            save_peso_to_db(updates, participante)
+            MESSAGE_TYPE = 3
         # Se tiver um numero só sem ser decimal entao quer dizer que é só o peso mesmo e nao um número dizendo uma porção na refeicao
         elif MESSAGE_TYPE == 1 and len(re.findall("\d+", text )) == 1:
-            save_peso_to_db(updates)
-            MESSAGE_TYPE = 0
+            save_peso_to_db(updates, participante)
+            MESSAGE_TYPE = 3
         elif text == REFEICAO_TEXTO:
-            send_message("Descreva o que você comeu :", chat)
+            send_message("Ok! Insira em uma única mensagem o que você comeu.:", chat)
             MESSAGE_TYPE = 2
         elif MESSAGE_TYPE == 2:
-            save_refeicao_to_db(updates)
-        if text == "/enviar":
+            save_refeicao_to_db(updates, participante)
+            MESSAGE_TYPE = 3
+        if text.lower() == "oi":
             keyboard = build_keyboard()
             send_message("Selecione uma das opções", chat, keyboard)
+            MESSAGE_TYPE = 0
+        elif MESSAGE_TYPE == 3:
+            send_message("Obrigado por submeter os dados! ;)", chat)
             MESSAGE_TYPE = 0
         elif text == "/start":
             send_message("Welcome to your personal To Do list. Send any text to me and I'll store it as an item. Send /done to remove items", chat)
