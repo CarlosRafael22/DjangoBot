@@ -5,6 +5,7 @@ import datetime
 import os, sys
 from django.utils import timezone
 import re
+# import threadHandler
 
 # sys.path.append(os.path.join(os.path.dirname(__file__), 'eleveBot'))
 # os.environ.setdefault("DJANGO_SETTINGS_MODULE", "eleveBot.settings")
@@ -43,6 +44,7 @@ MESSAGE_TYPE = 0
 # Lista de usuarios ja vistos para nao precisar ficar checando no banco
 # se ja registrou o participante
 LISTA_PARTICIPANTES = []
+CHAT_IDS_THREADS_CRIADAS = []
 
 def get_url(url):
     print("accessed API")
@@ -67,15 +69,15 @@ def get_updates(offset=None):
     js = get_json_from_url(url)
     return js
 
-def save_peso_to_db(updates, participante):
+def save_peso_to_db(updates, participante, peso):
     print("Pegando o peso")
     # Pegando a ultima mensagem com o chat_id
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
     # Pegando o peso
-    msg = re.findall("\d+", msg )[0]
+    # msg = re.findall("\d+", msg )[0]
     data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
-    Log_Peso.objects.create(peso=msg, data=data, participante=participante)
+    Log_Peso.objects.create(peso=peso, data=data, participante=participante)
 
 
 def save_refeicao_to_db(updates, participante):
@@ -133,11 +135,65 @@ def send_message(text, chat_id, reply_markup=None):
         url += "&reply_markup={}".format(reply_markup)
     get_url(url)
 
+def receive_chat(updates, text, chat, participante, nome_participante):
+    global MESSAGE_TYPE
+    print(MESSAGE_TYPE)
+    # AQUI EU LI O QUE O USUARIO MANDOU E AI EU VEJO O QUE RESPONDO OU FAÇO NO BANCO
+    if text == PESO_TEXTO:
+        send_message("Ok! Pode inserir seu peso.", chat)
+        MESSAGE_TYPE = 1
+    # # Se tiver um numero só sem ser decimal entao quer dizer que é só o peso mesmo e nao um número dizendo uma porção na refeicao
+    # elif MESSAGE_TYPE == 1 and len(re.findall("\d+", text )) == 1:
+    #     save_peso_to_db(updates, participante)
+    #     MESSAGE_TYPE = 3
+    # Se tiver avisado q vai adicionar um peso e mensagem vier com algum decimal entao pegamos o peso
+    elif MESSAGE_TYPE == 1 and (len(re.findall("\d+\.\d+", text )) > 0 or len(re.findall("\d+", text )) == 1):
+        rgA = re.findall("\d+\.\d+", text )
+        rgB = re.findall("\d+", text )
+        
+        if len(rgA) > 0:
+            save_peso_to_db(updates, participante, rgA[0])
+        elif len(rgB) == 1:
+            save_peso_to_db(updates, participante, rgB[0])
+        MESSAGE_TYPE = 3
+    
+
+    # INTERACOES COM AS REFEICOES
+    elif text == REFEICAO_TEXTO:
+        send_message("Ok! Insira em uma única mensagem o que você comeu.:", chat)
+        MESSAGE_TYPE = 2
+    elif MESSAGE_TYPE == 2:
+        save_refeicao_to_db(updates, participante)
+        MESSAGE_TYPE = 3
+
+    # OUTRAS INTERACOES
+    if "#oi" in text.lower():
+        keyboard = build_keyboard()
+        msg =  "Olá, "+nome_participante+"! Selecione uma das opções abaixo:"
+        send_message(msg, chat, keyboard)
+        MESSAGE_TYPE = 0
+    elif MESSAGE_TYPE == 3:
+        send_message("Obrigado por submeter os dados! ;)", chat)
+        MESSAGE_TYPE = 0
+    elif MESSAGE_TYPE == 0:
+        msg =  "Desculpe, "+nome_participante+"! Eu sou limitado só à algumas interações ;)"
+        send_message(msg, chat)
+        send_message("Quando quiser registrar algum dado fale comigo :)", chat)
+    elif text == "/start":
+        send_message("Welcome to your personal To Do list. Send any text to me and I'll store it as an item. Send /done to remove items", chat)
+        MESSAGE_TYPE = 0
+    # elif text.startswith("/"):
+    #     continue
 
 def handle_updates(updates):
     global MESSAGE_TYPE
+    lista_threads_chats = []
+
     for update in updates["result"]:
-        text = update["message"]["text"]
+        try:
+            text = update["message"]["text"]
+        except:
+            text = "Recebeu algo q nao era texto como um GIF"
         chat = update["message"]["chat"]["id"]
         nome_participante = update["message"]["chat"]["first_name"]
 
@@ -147,48 +203,18 @@ def handle_updates(updates):
             participante = Participante.objects.get(telegram_chat_id=chat)
         except Exception as e:
             participante = Participante.objects.create(telegram_chat_id=chat, nome=nome_participante)
+            global LISTA_PARTICIPANTES
             LISTA_PARTICIPANTES.append({"telegram_chat_id" : chat, "nome" : nome_participante})
 
-        print(MESSAGE_TYPE)
-        # AQUI EU LI O QUE O USUARIO MANDOU E AI EU VEJO O QUE RESPONDO OU FAÇO NO BANCO
-        if text == PESO_TEXTO:
-            send_message("Ok! Pode inserir seu peso.", chat)
-            MESSAGE_TYPE = 1
-        # Se tiver avisado q vai adicionar um peso e mensagem vier com algum decimal entao pegamos o peso
-        elif MESSAGE_TYPE == 1 and len(re.findall("\d+\.\d+", text )) > 0:
-            save_peso_to_db(updates, participante)
-            MESSAGE_TYPE = 3
-        # Se tiver um numero só sem ser decimal entao quer dizer que é só o peso mesmo e nao um número dizendo uma porção na refeicao
-        elif MESSAGE_TYPE == 1 and len(re.findall("\d+", text )) == 1:
-            save_peso_to_db(updates, participante)
-            MESSAGE_TYPE = 3
+        # MANTENDO OS ESTADOS DE CADA CONVERSA
 
-        # INTERACOES COM AS REFEICOES
-        elif text == REFEICAO_TEXTO:
-            send_message("Ok! Insira em uma única mensagem o que você comeu.:", chat)
-            MESSAGE_TYPE = 2
-        elif MESSAGE_TYPE == 2:
-            save_refeicao_to_db(updates, participante)
-            MESSAGE_TYPE = 3
 
-        # OUTRAS INTERACOES
-        if "oi" in text.lower():
-            keyboard = build_keyboard()
-            msg =  "Olá, "+nome_participante+"! Selecione uma das opções abaixo:"
-            send_message(msg, chat, keyboard)
-            MESSAGE_TYPE = 0
-        elif MESSAGE_TYPE == 3:
-            send_message("Obrigado por submeter os dados! ;)", chat)
-            MESSAGE_TYPE = 0
-        elif MESSAGE_TYPE == 0:
-            msg =  "Desculpe, "+nome_participante+"! Eu sou limitado só à algumas interações ;)"
-            send_message(msg, chat)
-            send_message("Quando quiser registrar algum dado fale comigo :)", chat)
-        elif text == "/start":
-            send_message("Welcome to your personal To Do list. Send any text to me and I'll store it as an item. Send /done to remove items", chat)
-            MESSAGE_TYPE = 0
-        elif text.startswith("/"):
-            continue
+        # # CRIAR UM THREAD PARA CADA CHAT COM ID DIFERENTE
+        # global CHAT_IDS_THREADS_CRIADAS
+        # if chat not in CHAT_IDS_THREADS_CRIADAS:
+        #     thread = 
+
+        receive_chat(updates, text, chat, participante, nome_participante)
 
 
 def main():
