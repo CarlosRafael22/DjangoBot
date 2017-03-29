@@ -33,3 +33,12 @@ class Log_Peso(models.Model):
 	# 	# partic.save()
 
 	# 	return super(Log_Peso, self).save(*args, **kwargs)
+
+class Log_Refeicao(models.Model):
+	refeicao_nome = models.CharField(max_length=100, null = True)
+	descricao_refeicao = models.CharField(max_length=500)
+	data = models.DateTimeField()
+	# person = models.ForeignKey(Person, related_name='logs_meal')
+
+	def __str__(self):
+		return self.descricao_refeicao
