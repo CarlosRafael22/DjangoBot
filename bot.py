@@ -162,19 +162,28 @@ def handle_updates(updates):
         elif MESSAGE_TYPE == 1 and len(re.findall("\d+", text )) == 1:
             save_peso_to_db(updates, participante)
             MESSAGE_TYPE = 3
+
+        # INTERACOES COM AS REFEICOES
         elif text == REFEICAO_TEXTO:
             send_message("Ok! Insira em uma única mensagem o que você comeu.:", chat)
             MESSAGE_TYPE = 2
         elif MESSAGE_TYPE == 2:
             save_refeicao_to_db(updates, participante)
             MESSAGE_TYPE = 3
-        if text.lower() == "oi":
+
+        # OUTRAS INTERACOES
+        if "oi" in text.lower():
             keyboard = build_keyboard()
-            send_message("Selecione uma das opções", chat, keyboard)
+            msg =  "Olá, "+nome_participante+"! Selecione uma das opções abaixo:"
+            send_message(msg, chat, keyboard)
             MESSAGE_TYPE = 0
         elif MESSAGE_TYPE == 3:
             send_message("Obrigado por submeter os dados! ;)", chat)
             MESSAGE_TYPE = 0
+        elif MESSAGE_TYPE == 0:
+            msg =  "Desculpe, "+nome_participante+"! Eu sou limitado só à algumas interações ;)"
+            send_message(msg, chat)
+            send_message("Quando quiser registrar algum dado fale comigo :)", chat)
         elif text == "/start":
             send_message("Welcome to your personal To Do list. Send any text to me and I'll store it as an item. Send /done to remove items", chat)
             MESSAGE_TYPE = 0
