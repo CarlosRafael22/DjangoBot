@@ -115,14 +115,14 @@ def save_peso_to_db(updates, participante, peso):
     #     Log_Peso.objects.create(participante=participante, peso=)
 
 
-def save_refeicao_to_db(updates, participante):
+def save_refeicao_to_db(updates, participante, tipo_refeicao):
     print("Pegando a refeicao")
     # Pegando a ultima mensagem com o chat_id
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
 
     data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
-    Log_Refeicao.objects.create(descricao_refeicao=msg, data=data, participante=participante)
+    Log_Refeicao.objects.create(descricao_refeicao=msg, data=data, participante=participante, refeicao_nome=tipo_refeicao)
 
 # Add a function that calculates the highest ID of all the updates we receive from getUpdates. 
 # Quando for ver a ultima mensagem que recebeu do getUpdates ele pega e salva no banco
@@ -228,11 +228,18 @@ def receive_chat(updates, text, chat, participante, nome_participante):
     #     save_refeicao_to_db(updates, participante)
     #     MESSAGE_TYPE = 3
     elif text == REFEICAO_TEXTO:
+        keyboard = build_refeicoes_keyboard()
+        send_message("Agora selecione o tipo de refeição:", chat, keyboard)
+        MESSAGE_TYPE = 2
+        chatState.message_type = MESSAGE_TYPE
+    elif (chatState.message_type == 2) and (text in LISTA_REFEICOES):
         send_message("Ok! Insira em uma única mensagem o que você comeu.", chat)
         MESSAGE_TYPE = 2
         chatState.message_type = MESSAGE_TYPE
-    elif chatState.message_type == 2:
-        save_refeicao_to_db(updates, participante)
+        chatState.refeicao_type = text
+    # Se ja tiver o tipo de refeicao entao eh o ultimo passo e salvamos a refeicao no banco
+    elif (chatState.message_type == 2) and (chatState.refeicao_type is not None):
+        save_refeicao_to_db(updates, participante, chatState.refeicao_type)
         MESSAGE_TYPE = 3
         chatState.message_type = MESSAGE_TYPE
 
