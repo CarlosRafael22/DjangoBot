@@ -5,12 +5,7 @@ import datetime
 import os, sys
 from django.utils import timezone
 import re
-# import threadHandler
-
-# sys.path.append(os.path.join(os.path.dirname(__file__), 'eleveBot'))
-# os.environ.setdefault("DJANGO_SETTINGS_MODULE", "eleveBot.settings")
-# from django.conf import settings
-# from bot.models import *
+from enum import Enum
 
 proj_path = "/path/to/my/project/"
 # This is so Django knows where to find stuff.
@@ -27,8 +22,8 @@ from bot.models import *
 
 
 # Token antigo do elevebot
-# TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
-TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
+TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
+# TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
 # VARIAVEIS QUE VAO APARECER COMO OPÇOES NO TECLADO
@@ -57,6 +52,28 @@ MESSAGE_TYPE = 0
 LISTA_PARTICIPANTES = []
 CHAT_IDS_THREADS_CRIADAS = []
 
+
+class EMessageType(Enum):
+    REFEICAO = 0
+    PESO = 1
+    ERRO = 2
+    SUCESSO = 3
+
+
+class ChatState:
+
+    def __init__(self, last_id_message = None, message_type=None, refeicao_type=None):
+        self.last_id_message = last_id_message
+        self.message_type = message_type
+        self.refeicao_type = refeicao_type
+
+    def __str__(self):
+        response = "{ " + "message_type : " + str(self.message_type) + ", refeicao_type : " + str(self.refeicao_type) + " }"
+        return response
+
+
+CHATS_DICTIONARY = {}
+
 def get_url(url):
     print("accessed API")
     response = requests.get(url)
@@ -74,7 +91,7 @@ def get_json_from_url(url):
 # Usa o offset para nao receber mensagens mais antigas que a do ID do offset
 # Assim o get_updates nao traz todas as mensagens da conversa e apenas as mais novas
 def get_updates(offset=None):
-    url = URL + "getUpdates?timeout=100"
+    url = URL + "getUpdates?timeout=3000"
     if offset:
         url += "&offset={}".format(offset)
     js = get_json_from_url(url)
@@ -162,15 +179,28 @@ def send_message(text, chat_id, reply_markup=None):
     get_url(url)
 
 def receive_chat(updates, text, chat, participante, nome_participante):
-    global MESSAGE_TYPE
-    print(MESSAGE_TYPE)
+    MESSAGE_TYPE = 0
+
+    if chat in CHATS_DICTIONARY:
+        chatState = CHATS_DICTIONARY[chat]
+    else:
+        # criando um chatState no dicionario com key sendo o chat_id e dps vou colocar infos sobre o chat
+        CHATS_DICTIONARY[chat] = ChatState(message_type=0)
+        chatState = CHATS_DICTIONARY[chat]
+
+    print("ESTAMOS NA CONVERSA")
+    print(chat)
+    print(CHATS_DICTIONARY[chat])
+    print(chatState.message_type)
     # AQUI EU LI O QUE O USUARIO MANDOU E AI EU VEJO O QUE RESPONDO OU FAÇO NO BANCO
     if text == PESO_TEXTO:
         send_message("Ok! Pode inserir seu peso.", chat)
         MESSAGE_TYPE = 1
+        chatState.message_type = MESSAGE_TYPE
     
     # Se tiver avisado q vai adicionar um peso e mensagem vier com algum decimal entao pegamos o peso
-    elif MESSAGE_TYPE == 1 and (len(re.findall("\d+\.\d+", text )) > 0 or len(re.findall("\d+", text )) == 1 or len(re.findall("\d+\,\d+", text )) > 0):
+    # SE O ESTADO DA CONVERSA QUE ELE ESTA VENDO FOR O DE PESO ELE VE SE RECEBEU PESO
+    elif chatState.message_type == 1 and (len(re.findall("\d+\.\d+", text )) > 0 or len(re.findall("\d+", text )) == 1 or len(re.findall("\d+\,\d+", text )) > 0):
         rgA = re.findall("\d+\.\d+", text )
         rgB = re.findall("\d+", text )
         rgC = re.findall("\d+\,\d+", text )
@@ -184,6 +214,7 @@ def receive_chat(updates, text, chat, participante, nome_participante):
             rg = rgC[0].replace(",", ".")
             save_peso_to_db(updates, participante, rg)
         MESSAGE_TYPE = 3
+        chatState.message_type = MESSAGE_TYPE
     
 
     # INTERACOES COM AS REFEICOES
@@ -199,9 +230,11 @@ def receive_chat(updates, text, chat, participante, nome_participante):
     elif text == REFEICAO_TEXTO:
         send_message("Ok! Insira em uma única mensagem o que você comeu.", chat)
         MESSAGE_TYPE = 2
-    elif MESSAGE_TYPE == 2:
+        chatState.message_type = MESSAGE_TYPE
+    elif chatState.message_type == 2:
         save_refeicao_to_db(updates, participante)
         MESSAGE_TYPE = 3
+        chatState.message_type = MESSAGE_TYPE
 
     # OUTRAS INTERACOES
     if "oi" in text.lower():
@@ -209,15 +242,18 @@ def receive_chat(updates, text, chat, participante, nome_participante):
         msg =  "Olá, "+nome_participante+"! Selecione o tipo de registro."
         send_message(msg, chat, keyboard)
         MESSAGE_TYPE = 0
-    elif MESSAGE_TYPE == 3:
+        chatState.message_type = MESSAGE_TYPE
+    elif chatState.message_type == 3:
         send_message("Seu registro foi feito com sucesso!", chat)
         MESSAGE_TYPE = 0
-    elif MESSAGE_TYPE == 0:
+        chatState.message_type = MESSAGE_TYPE
+    elif chatState.message_type == 0:
         msg =  "Desculpe, "+nome_participante+". Para inserir um novo registro, digite 'oi'."
         send_message(msg, chat)
     elif text == "/start":
         send_message("Olá! Para inserir um novo registro, digite 'oi'.", chat)
         MESSAGE_TYPE = 0
+        chatState.message_type = MESSAGE_TYPE
     # elif text.startswith("/"):
     #     continue
 
@@ -239,8 +275,6 @@ def handle_updates(updates):
             participante = Participante.objects.get(telegram_chat_id=chat)
         except Exception as e:
             participante = Participante.objects.create(telegram_chat_id=chat, nome=nome_participante)
-            global LISTA_PARTICIPANTES
-            LISTA_PARTICIPANTES.append({"telegram_chat_id" : chat, "nome" : nome_participante})
 
         # MANTENDO OS ESTADOS DE CADA CONVERSA
 

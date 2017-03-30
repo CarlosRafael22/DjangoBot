@@ -1,4 +1,6 @@
 from django.db import models
+from simple_history.models import HistoricalRecords
+from django.utils import timezone
 
 # Create your models here.
 class Participante(models.Model):
@@ -12,30 +14,39 @@ class Log_Peso(models.Model):
 	peso = models.DecimalField(max_digits=5, decimal_places=2, null=True)
 	data = models.DateTimeField()
 	participante = models.ForeignKey(Participante)
-	# history = HistoricalRecords()
-
-
-	# for log in log1.history.all():
-	# 	type(log.history_date)
-	# 	print(log.history_date - timedelta(hours=3) )
-	#  TEM QUE SUBTRAIR 3 HORAS PARA DAR A HORA DAQUI JA QUE ELE PEGA A HORA DE GREENWICH
 
 	def __str__(self):
-		response = str(self.peso) + " " + self.participante.nome
+		response = self.participante.nome + " " + str(self.peso)
 		return response
 
-	# def save(self, *args, **kwargs):
-	# 	if not self.id:
-	# 		self.data = timezone.localtime(timezone.now())
+	def save(self, *args, **kwargs):
+		if not self.id:
+			self.data = timezone.localtime(timezone.now())
 
-	# 	# Salvando o peso mais recente no Paciente
-	# 	# import pdb;
-	# 	# pdb.set_trace();
-	# 	# partic = Paciente.objects.get(id=self.participante.id)
-	# 	# partic.peso = self.history.most_recent().peso
-	# 	# partic.save()
+		return super(Log_Peso, self).save(*args, **kwargs)
 
-	# 	return super(Log_Peso, self).save(*args, **kwargs)
+# class Log_Peso(models.Model):
+# 	peso = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+# 	data = models.DateTimeField()
+# 	participante = models.ForeignKey(Participante)
+# 	history = HistoricalRecords()
+
+
+# 	# for log in log1.history.all():
+# 	# 	type(log.history_date)
+# 	# 	print(log.history_date - timedelta(hours=3) )
+# 	#  TEM QUE SUBTRAIR 3 HORAS PARA DAR A HORA DAQUI JA QUE ELE PEGA A HORA DE GREENWICH
+
+# 	def __str__(self):
+# 		peso_mais_recente = str(self.history.most_recent().peso)
+# 		response = self.participante.nome + " " + peso_mais_recente
+# 		return response
+
+# 	def save(self, *args, **kwargs):
+# 		if not self.id:
+# 			self.data = timezone.localtime(timezone.now())
+
+# 		return super(Log_Peso, self).save(*args, **kwargs)
 
 class Log_Refeicao(models.Model):
 	refeicao_nome = models.CharField(max_length=100, null = True)
