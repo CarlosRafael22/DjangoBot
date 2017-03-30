@@ -6,6 +6,7 @@ import os, sys
 from django.utils import timezone
 import re
 from enum import Enum
+from decimal import Decimal
 
 proj_path = "/path/to/my/project/"
 # This is so Django knows where to find stuff.
@@ -22,8 +23,7 @@ from bot.models import *
 
 
 # Token antigo do elevebot
-TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
-# TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
+TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
 # VARIAVEIS QUE VAO APARECER COMO OPÇOES NO TECLADO
@@ -31,7 +31,14 @@ PESO_TEXTO = "Medida de Peso"
 REFEICAO_TEXTO = "Adicionar Refeição"
 
 # OPCOES DE REFEICOES
-CAFE_DA_MANHA = "Café da manhã"
+# CAFE_DA_MANHA = "Café da manhã"
+# LANCHE_MANHA = "Lanche da manhã"
+# ALMOCO = "Almoço"
+# LANCHE_TARDE = "Lanche da tarde"
+# JANTAR= "Jantar"
+# LANCHE_NOITE = "Lanche da noite"
+CAFE_DA_MANHA = '''Café
+da manhã'''
 LANCHE_MANHA = "Lanche da manhã"
 ALMOCO = "Almoço"
 LANCHE_TARDE = "Lanche da tarde"
@@ -105,14 +112,14 @@ def save_peso_to_db(updates, participante, peso):
     # Pegando o peso
     # msg = re.findall("\d+", msg )[0]
     data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
-    Log_Peso.objects.create(peso=peso, data=data, participante=participante)
-    # try:
-    #     log = Log_Peso.objects.get(participante=participante)
-    #     peso = Decimal(peso)
-    #     log.peso(peso)
-    #     log.save()
-    # except:
-    #     Log_Peso.objects.create(participante=participante, peso=)
+    # Log_Peso.objects.create(peso=peso, data=data, participante=participante)
+    try:
+        log = Log_Peso.objects.get(participante=participante)
+        peso = float(peso)
+        log.peso = peso
+        log.save()
+    except:
+        Log_Peso.objects.create(participante=participante, peso=peso, data=data)
 
 
 def save_refeicao_to_db(updates, participante, tipo_refeicao):
@@ -162,11 +169,15 @@ def build_refeicoes_keyboard():
     return json.dumps(reply_markup)
 
 def build_inlinekeyboard():
-    keyboard = [[{"text":CAFE_DA_MANHA, "callback_data": CAFE_DA_MANHA}, {"text":LANCHE_MANHA, "callback_data": LANCHE_MANHA},
-     {"text":ALMOCO, "callback_data": ALMOCO}], 
-     [{"text":LANCHE_TARDE, "callback_data": LANCHE_TARDE}, {"text":JANTAR, "callback_data": JANTAR}, 
-     {"text":LANCHE_NOITE, "callback_data": LANCHE_NOITE}]]
-    reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
+    keyboard = [
+        [{"text":CAFE_DA_MANHA, "callback_data": CAFE_DA_MANHA}], 
+        [{"text":LANCHE_MANHA, "callback_data": LANCHE_MANHA}],
+        [{"text":ALMOCO, "callback_data": ALMOCO}], 
+        [{"text":LANCHE_TARDE, "callback_data": LANCHE_TARDE}], 
+        [{"text":JANTAR, "callback_data": JANTAR}], 
+        [{"text":LANCHE_NOITE, "callback_data": LANCHE_NOITE}]
+     ]
+    reply_markup = {"inline_keyboard":keyboard}
     return json.dumps(reply_markup)
 
 
@@ -228,7 +239,7 @@ def receive_chat(updates, text, chat, participante, nome_participante):
     #     save_refeicao_to_db(updates, participante)
     #     MESSAGE_TYPE = 3
     elif text == REFEICAO_TEXTO:
-        keyboard = build_refeicoes_keyboard()
+        keyboard = build_inlinekeyboard()
         send_message("Agora selecione o tipo de refeição:", chat, keyboard)
         MESSAGE_TYPE = 2
         chatState.message_type = MESSAGE_TYPE
@@ -251,7 +262,8 @@ def receive_chat(updates, text, chat, participante, nome_participante):
         MESSAGE_TYPE = 0
         chatState.message_type = MESSAGE_TYPE
     elif chatState.message_type == 3:
-        send_message("Seu registro foi feito com sucesso!", chat)
+        keyboard = build_keyboard()
+        send_message("Seu registro foi feito com sucesso!", chat, keyboard)
         MESSAGE_TYPE = 0
         chatState.message_type = MESSAGE_TYPE
     elif chatState.message_type == 0:
