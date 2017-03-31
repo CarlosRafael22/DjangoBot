@@ -23,7 +23,6 @@ from bot.models import *
 
 
 # Token antigo do elevebot
-# TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
 TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
@@ -32,7 +31,14 @@ PESO_TEXTO = "Medida de Peso"
 REFEICAO_TEXTO = "Adicionar Refeição"
 
 # OPCOES DE REFEICOES
-CAFE_DA_MANHA = "Café da manhã"
+# CAFE_DA_MANHA = "Café da manhã"
+# LANCHE_MANHA = "Lanche da manhã"
+# ALMOCO = "Almoço"
+# LANCHE_TARDE = "Lanche da tarde"
+# JANTAR= "Jantar"
+# LANCHE_NOITE = "Lanche da noite"
+CAFE_DA_MANHA = '''Café
+da manhã'''
 LANCHE_MANHA = "Lanche da manhã"
 ALMOCO = "Almoço"
 LANCHE_TARDE = "Lanche da tarde"
@@ -163,11 +169,15 @@ def build_refeicoes_keyboard():
     return json.dumps(reply_markup)
 
 def build_inlinekeyboard():
-    keyboard = [[{"text":CAFE_DA_MANHA, "callback_data": CAFE_DA_MANHA}, {"text":LANCHE_MANHA, "callback_data": LANCHE_MANHA},
-     {"text":ALMOCO, "callback_data": ALMOCO}], 
-     [{"text":LANCHE_TARDE, "callback_data": LANCHE_TARDE}, {"text":JANTAR, "callback_data": JANTAR}, 
-     {"text":LANCHE_NOITE, "callback_data": LANCHE_NOITE}]]
-    reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
+    keyboard = [
+        [{"text":CAFE_DA_MANHA, "callback_data": CAFE_DA_MANHA}], 
+        [{"text":LANCHE_MANHA, "callback_data": LANCHE_MANHA}],
+        [{"text":ALMOCO, "callback_data": ALMOCO}], 
+        [{"text":LANCHE_TARDE, "callback_data": LANCHE_TARDE}], 
+        [{"text":JANTAR, "callback_data": JANTAR}], 
+        [{"text":LANCHE_NOITE, "callback_data": LANCHE_NOITE}]
+     ]
+    reply_markup = {"inline_keyboard":keyboard}
     return json.dumps(reply_markup)
 
 
@@ -229,7 +239,7 @@ def receive_chat(updates, text, chat, participante, nome_participante):
     #     save_refeicao_to_db(updates, participante)
     #     MESSAGE_TYPE = 3
     elif text == REFEICAO_TEXTO:
-        keyboard = build_refeicoes_keyboard()
+        keyboard = build_inlinekeyboard()
         send_message("Agora selecione o tipo de refeição:", chat, keyboard)
         MESSAGE_TYPE = 2
         chatState.message_type = MESSAGE_TYPE
@@ -243,19 +253,9 @@ def receive_chat(updates, text, chat, participante, nome_participante):
         save_refeicao_to_db(updates, participante, chatState.refeicao_type)
         MESSAGE_TYPE = 3
         chatState.message_type = MESSAGE_TYPE
-    # Se tiver no fluxo da refeicao e o texto nao for o da lista nem ja tiver o refeicao_type
-    # eh pq se adiantaram no fluxo e ja escreveram a refeicao
-    # Entao peço para seguir com o fluxo
-    elif (chatState.message_type == 2):
-        keyboard = build_refeicoes_keyboard()
-        mensagem = "Desculpe, não entendi!\nPor favor, selecione o tipo de refeição antes de digitar :)"
-        send_message(mensagem, chat, keyboard)
-        MESSAGE_TYPE = 2
-        chatState.message_type = MESSAGE_TYPE
 
     # OUTRAS INTERACOES
-    # Se so tiver Oi na mensagem entao eh a primeira interacao
-    if ("oi" in text.lower()) and (len(text) == 2):
+    if "oi" in text.lower():
         keyboard = build_keyboard()
         msg =  "Olá, "+nome_participante+"! Selecione o tipo de registro."
         send_message(msg, chat, keyboard)
@@ -265,10 +265,7 @@ def receive_chat(updates, text, chat, participante, nome_participante):
         keyboard = build_keyboard()
         send_message("Seu registro foi feito com sucesso!", chat, keyboard)
         MESSAGE_TYPE = 0
-
-        # Limpando o chatState
         chatState.message_type = MESSAGE_TYPE
-        chatState.refeicao_type = None
     elif chatState.message_type == 0:
         msg =  "Desculpe, "+nome_participante+". Para inserir um novo registro, digite 'oi'."
         send_message(msg, chat)

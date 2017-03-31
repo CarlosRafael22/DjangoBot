@@ -23,7 +23,6 @@ from bot.models import *
 
 
 # Token antigo do elevebot
-# TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
 TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
@@ -243,9 +242,19 @@ def receive_chat(updates, text, chat, participante, nome_participante):
         save_refeicao_to_db(updates, participante, chatState.refeicao_type)
         MESSAGE_TYPE = 3
         chatState.message_type = MESSAGE_TYPE
+    # Se tiver no fluxo da refeicao e o texto nao for o da lista nem ja tiver o refeicao_type
+    # eh pq se adiantaram no fluxo e ja escreveram a refeicao
+    # Entao peço para seguir com o fluxo
+    elif (chatState.message_type == 2):
+        keyboard = build_refeicoes_keyboard()
+        mensagem = "Desculpe, não entendi!\nPor favor, selecione o tipo de refeição antes de digitar :)"
+        send_message(mensagem, chat, keyboard)
+        MESSAGE_TYPE = 2
+        chatState.message_type = MESSAGE_TYPE
 
     # OUTRAS INTERACOES
-    if "oi" in text.lower():
+    # Se so tiver Oi na mensagem entao eh a primeira interacao
+    if ("oi" in text.lower()) and (len(text) == 2):
         keyboard = build_keyboard()
         msg =  "Olá, "+nome_participante+"! Selecione o tipo de registro."
         send_message(msg, chat, keyboard)
@@ -255,7 +264,10 @@ def receive_chat(updates, text, chat, participante, nome_participante):
         keyboard = build_keyboard()
         send_message("Seu registro foi feito com sucesso!", chat, keyboard)
         MESSAGE_TYPE = 0
+
+        # Limpando o chatState
         chatState.message_type = MESSAGE_TYPE
+        chatState.refeicao_type = None
     elif chatState.message_type == 0:
         msg =  "Desculpe, "+nome_participante+". Para inserir um novo registro, digite 'oi'."
         send_message(msg, chat)
