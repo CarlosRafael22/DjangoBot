@@ -110,6 +110,7 @@ def save_peso_to_db(updates, participante, peso):
         log = Log_Peso.objects.get(participante=participante)
         peso = float(peso)
         log.peso = peso
+        log.data = data
         log.save()
     except:
         Log_Peso.objects.create(participante=participante, peso=peso, data=data)
@@ -287,8 +288,13 @@ def handle_updates(updates):
             text = update["message"]["text"]
         except:
             text = "Recebeu algo q nao era texto como um GIF"
-        chat = update["message"]["chat"]["id"]
-        nome_participante = update["message"]["chat"]["first_name"]
+        try:
+            chat = update["message"]["chat"]["id"]
+            nome_participante = update["message"]["chat"]["first_name"]
+        except:
+            chat = update["edited_message"]["chat"]["id"]
+            nome_participante = update["edited_message"]["chat"]["first_name"]
+        # nome_participante = update["message"]["chat"]["first_name"]
 
         # Para cada mensagem nova que recebeu eu vou ver o chat para saber o id do participante conversando
         # Para cada participante diferente eu teria que cirar um processo para ele lidar com as msgs do mesmo

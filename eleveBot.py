@@ -111,6 +111,7 @@ def save_peso_to_db(updates, participante, peso):
         log = Log_Peso.objects.get(participante=participante)
         peso = float(peso)
         log.peso = peso
+        log.data = data
         log.save()
     except:
         Log_Peso.objects.create(participante=participante, peso=peso, data=data)
