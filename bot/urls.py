@@ -1,8 +1,10 @@
 from django.conf.urls import url
 from bot import views
 
+# Modificado o regex para aceitar com espaco ou nao: _refeicao/Rosangela ou _refeicao/Carlos Rafael
 urlpatterns = [
-	url(r'^bot/monitoramento_refeicao/(?P<participanteName>[\w]+)/$', views.export_csv_refeicao),
+	url(r'^bot/monitoramento_refeicao/(?P<participanteName>[\w]+\s*[\w]+)/$', views.export_csv_refeicao),
+	url(r'^bot/monitoramento_peso/(?P<participanteName>[\w]+\s*[\w]+)/$', views.export_csv_peso),
 	
 ]
 

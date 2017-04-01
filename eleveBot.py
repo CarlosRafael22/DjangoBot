@@ -1,12 +1,13 @@
 import json 
 import requests
 import time
-import datetime
+from datetime import datetime
 import os, sys
 from django.utils import timezone
 import re
 from enum import Enum
 from decimal import Decimal
+import pytz
 
 proj_path = "/path/to/my/project/"
 # This is so Django knows where to find stuff.
@@ -103,18 +104,22 @@ def save_peso_to_db(updates, participante, peso):
     # Pegando a ultima mensagem com o chat_id
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
-    # Pegando o peso
-    # msg = re.findall("\d+", msg )[0]
-    data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Fazendo a conversao do tempo em UTC para o de Recife antes de salvar
+    local_tz =  pytz.timezone("America/Recife")
+    utc_dt = datetime.utcfromtimestamp(date).replace(tzinfo=pytz.utc)
+    local_dt = local_tz.normalize(utc_dt.astimezone(local_tz)).strftime('%Y-%m-%d %H:%M:%S')
+
+    # data = datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
     # Log_Peso.objects.create(peso=peso, data=data, participante=participante)
     try:
         log = Log_Peso.objects.get(participante=participante)
         peso = float(peso)
         log.peso = peso
-        log.data = data
+        log.data = local_dt
         log.save()
     except:
-        Log_Peso.objects.create(participante=participante, peso=peso, data=data)
+        Log_Peso.objects.create(participante=participante, peso=peso, data=local_dt)
 
 
 def save_refeicao_to_db(updates, participante, tipo_refeicao):
@@ -123,7 +128,7 @@ def save_refeicao_to_db(updates, participante, tipo_refeicao):
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
 
-    data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
+    data = datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
     Log_Refeicao.objects.create(descricao_refeicao=msg, data=data, participante=participante, refeicao_nome=tipo_refeicao)
 
 # Add a function that calculates the highest ID of all the updates we receive from getUpdates. 
