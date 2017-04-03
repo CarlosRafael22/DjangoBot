@@ -1,12 +1,13 @@
 import json 
 import requests
 import time
-import datetime
+from datetime import datetime, timedelta
 import os, sys
 from django.utils import timezone
 import re
 from enum import Enum
 from decimal import Decimal
+import pytz
 
 proj_path = "/path/to/my/project/"
 # This is so Django knows where to find stuff.
@@ -22,7 +23,6 @@ application = get_wsgi_application()
 from bot.models import *
 
 
-# Token antigo do elevebot
 TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
@@ -62,13 +62,14 @@ class EMessageType(Enum):
 
 class ChatState:
 
-    def __init__(self, last_id_message = None, message_type=None, refeicao_type=None):
+    def __init__(self, last_id_message = None, message_type=None, refeicao_type=None, refeicao_dia=None):
         self.last_id_message = last_id_message
         self.message_type = message_type
         self.refeicao_type = refeicao_type
+        self.refeicao_dia = refeicao_dia
 
     def __str__(self):
-        response = "{ " + "message_type : " + str(self.message_type) + ", refeicao_type : " + str(self.refeicao_type) + " }"
+        response = "{ " + "message_type : " + str(self.message_type) + ", refeicao_type : " + str(self.refeicao_type) + ", refeicao_dia : " + str(self.refeicao_dia) + " }"
         return response
 
 
@@ -102,18 +103,22 @@ def save_peso_to_db(updates, participante, peso):
     # Pegando a ultima mensagem com o chat_id
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
-    # Pegando o peso
-    # msg = re.findall("\d+", msg )[0]
-    data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Fazendo a conversao do tempo em UTC para o de Recife antes de salvar
+    local_tz =  pytz.timezone("America/Recife")
+    utc_dt = datetime.utcfromtimestamp(date).replace(tzinfo=pytz.utc)
+    local_dt = local_tz.normalize(utc_dt.astimezone(local_tz)).strftime('%Y-%m-%d %H:%M:%S')
+
+    # data = datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
     # Log_Peso.objects.create(peso=peso, data=data, participante=participante)
     try:
         log = Log_Peso.objects.get(participante=participante)
         peso = float(peso)
         log.peso = peso
-        log.data = data
+        log.data = local_dt
         log.save()
     except:
-        Log_Peso.objects.create(participante=participante, peso=peso, data=data)
+        Log_Peso.objects.create(participante=participante, peso=peso, data=local_dt)
 
 
 def save_refeicao_to_db(updates, participante, tipo_refeicao):
@@ -122,7 +127,13 @@ def save_refeicao_to_db(updates, participante, tipo_refeicao):
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
 
-    data = datetime.datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
+    # Se tiver "Ontem" na mensagem a gnt salva como no dia anterior
+    if "ontem" in msg.lower():
+        day_time = datetime.fromtimestamp(date) - timedelta(days=1)
+    else:
+        day_time = datetime.fromtimestamp(date)
+
+    data = day_time.strftime('%Y-%m-%d %H:%M:%S')
     Log_Refeicao.objects.create(descricao_refeicao=msg, data=data, participante=participante, refeicao_nome=tipo_refeicao)
 
 # Add a function that calculates the highest ID of all the updates we receive from getUpdates. 
@@ -154,6 +165,11 @@ def get_last_message_info(updates):
 
 def build_keyboard():
     keyboard = [[PESO_TEXTO, REFEICAO_TEXTO]]
+    reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
+    return json.dumps(reply_markup)
+
+def build_keyboard_dia():
+    keyboard = [["Hoje", "Ontem"]]
     reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
     return json.dumps(reply_markup)
 
@@ -288,13 +304,8 @@ def handle_updates(updates):
             text = update["message"]["text"]
         except:
             text = "Recebeu algo q nao era texto como um GIF"
-        try:
-            chat = update["message"]["chat"]["id"]
-            nome_participante = update["message"]["chat"]["first_name"]
-        except:
-            chat = update["edited_message"]["chat"]["id"]
-            nome_participante = update["edited_message"]["chat"]["first_name"]
-        # nome_participante = update["message"]["chat"]["first_name"]
+        chat = update["message"]["chat"]["id"]
+        nome_participante = update["message"]["chat"]["first_name"]
 
         # Para cada mensagem nova que recebeu eu vou ver o chat para saber o id do participante conversando
         # Para cada participante diferente eu teria que cirar um processo para ele lidar com as msgs do mesmo

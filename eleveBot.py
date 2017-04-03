@@ -1,7 +1,7 @@
 import json 
 import requests
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import os, sys
 from django.utils import timezone
 import re
@@ -25,6 +25,8 @@ from bot.models import *
 
 # Token antigo do elevebot
 # TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
+# TOKEN NOVO
+# TOKEN = "371540343:AAFZcFzR8_OzSi3w5mpo-eLMOMCXsiKUV3s"
 TOKEN = "326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo"
 URL = "https://api.telegram.org/bot{}/".format(TOKEN)
 
@@ -64,13 +66,14 @@ class EMessageType(Enum):
 
 class ChatState:
 
-    def __init__(self, last_id_message = None, message_type=None, refeicao_type=None):
+    def __init__(self, last_id_message = None, message_type=None, refeicao_type=None, refeicao_dia=None):
         self.last_id_message = last_id_message
         self.message_type = message_type
         self.refeicao_type = refeicao_type
+        self.refeicao_dia = refeicao_dia
 
     def __str__(self):
-        response = "{ " + "message_type : " + str(self.message_type) + ", refeicao_type : " + str(self.refeicao_type) + " }"
+        response = "{ " + "message_type : " + str(self.message_type) + ", refeicao_type : " + str(self.refeicao_type) + ", refeicao_dia : " + str(self.refeicao_dia) + " }"
         return response
 
 
@@ -128,7 +131,13 @@ def save_refeicao_to_db(updates, participante, tipo_refeicao):
     (msg, chat_id, date) = get_last_message_info(updates)
     print(msg)
 
-    data = datetime.fromtimestamp(date).strftime('%Y-%m-%d %H:%M:%S')
+    # Se tiver "Ontem" na mensagem a gnt salva como no dia anterior
+    if "ontem" in msg.lower():
+        day_time = datetime.fromtimestamp(date) - timedelta(days=1)
+    else:
+        day_time = datetime.fromtimestamp(date)
+
+    data = day_time.strftime('%Y-%m-%d %H:%M:%S')
     Log_Refeicao.objects.create(descricao_refeicao=msg, data=data, participante=participante, refeicao_nome=tipo_refeicao)
 
 # Add a function that calculates the highest ID of all the updates we receive from getUpdates. 
@@ -160,6 +169,11 @@ def get_last_message_info(updates):
 
 def build_keyboard():
     keyboard = [[PESO_TEXTO, REFEICAO_TEXTO]]
+    reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
+    return json.dumps(reply_markup)
+
+def build_keyboard_dia():
+    keyboard = [["Hoje", "Ontem"]]
     reply_markup = {"keyboard":keyboard, "one_time_keyboard": True}
     return json.dumps(reply_markup)
 
