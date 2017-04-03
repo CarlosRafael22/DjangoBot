@@ -5,6 +5,8 @@ from bot import views
 urlpatterns = [
 	url(r'^bot/monitoramento_refeicao/(?P<participanteName>[\w]+\s*[\w]+)/$', views.export_csv_refeicao),
 	url(r'^bot/monitoramento_peso/(?P<participanteName>[\w]+\s*[\w]+)/$', views.export_csv_peso),
+	# url(r'^bot/monitoramento_refeicao/$', views.export_csv_refeicao_todos),
+	# url(r'^bot/monitoramento_peso/$', views.export_csv_peso_todos),
 	
 ]
 
