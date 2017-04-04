@@ -2,6 +2,7 @@ import time
 import telepot
 import messages
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+import json
 
 state = {}
 
@@ -61,7 +62,12 @@ def on_callback_query(msg):
 
     bot.answerCallbackQuery(query_id, text='Got it')
 
-TOKEN = '326058249:AAF7nEaSHKvdXYWRY4Y56IFw7cF0HHKBdoo'
+
+with open('tokens.secret') as json_raw:
+    secret_json = json.load(json_raw)
+    TOKEN = secret_json['ELEVE_BOT_TOKEN']
+
+
 
 bot = telepot.Bot(TOKEN)
 bot.message_loop({'chat': on_chat_message,
