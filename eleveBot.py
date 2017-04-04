@@ -2,7 +2,8 @@ import json
 import requests
 import time
 from datetime import datetime, timedelta
-import os, sys
+import os
+import sys
 from django.utils import timezone
 import re
 from enum import Enum
